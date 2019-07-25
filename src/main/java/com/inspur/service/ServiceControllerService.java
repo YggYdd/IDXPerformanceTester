@@ -57,11 +57,13 @@ public class ServiceControllerService {
         params.put("component", component);
 
         String returnId = "";
+        String result = "";
         try {
-            String result = HttpUtils.doJsonPut(url, params);
+            result = HttpUtils.doJsonPut(url, params);
             returnId = getIdFromResult(result);
         } catch (Exception e) {
             e.printStackTrace();
+            System.out.println(result);
         }
         return returnId;
     }

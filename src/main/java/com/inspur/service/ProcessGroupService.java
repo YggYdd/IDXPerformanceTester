@@ -57,10 +57,40 @@ public class ProcessGroupService {
         JSONObject connInfoJson = JSONObject.fromObject(connInfo);
         JSONArray connsJson = connInfoJson.getJSONArray("connections");
         Iterator<JSONObject> iterator = connsJson.iterator();
-        while (iterator.hasNext()){
+        while (iterator.hasNext()) {
             JSONObject connJson = iterator.next();
             String id = connJson.getString("id");
             connIds.add(id);
+        }
+        return connIds;
+    }
+
+    public List<String> getNotEmptyConnections(String groupId) {
+        List<String> connIds = new LinkedList<>();
+        String getUrl = EnvUtils.getNifiUrlPrefix() + processGroupBaseUri + groupId + "/connections";
+        try {
+            String result = HttpUtils.doGet(getUrl, null);
+            connIds = getNotEmptyConnIdsFromConnInfo(result);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return connIds;
+    }
+
+    private List<String> getNotEmptyConnIdsFromConnInfo(String connInfo) {
+        List<String> connIds = new LinkedList<>();
+        JSONObject connInfoJson = JSONObject.fromObject(connInfo);
+        JSONArray connsJson = connInfoJson.getJSONArray("connections");
+        Iterator<JSONObject> iterator = connsJson.iterator();
+        while (iterator.hasNext()) {
+            JSONObject connJson = iterator.next();
+            JSONObject snapshot = connJson.getJSONObject("status").getJSONObject("aggregateSnapshot");
+            int ffQueued = snapshot.getInt("flowFilesQueued");
+            int queuedCount = Integer.parseInt(snapshot.getString("queuedCount"));
+            if (ffQueued > 0 || queuedCount > 0) {
+                String id = connJson.getString("id");
+                connIds.add(id);
+            }
         }
         return connIds;
     }
@@ -78,8 +108,8 @@ public class ProcessGroupService {
         revision.put("version", 0);
         component.put("name", name);
         component.put("position", position);
-        position.put("x", (int) (Math.random() * 4000));
-        position.put("y", (int) (Math.random() * 3000));
+        position.put("x", (int) (Math.random() * 8000));
+        position.put("y", (int) (Math.random() * 6000));
 
         String result;
         try {

@@ -1,8 +1,6 @@
 package com.inspur;
 
-import com.inspur.bean.NiFiUser;
 import com.inspur.bean.NiFiUserHK;
-import com.inspur.bean.Organ;
 import com.inspur.bean.OrganHK;
 import com.inspur.jpa.NiFiUserHKJpa;
 import com.inspur.jpa.OrganHKJpa;
@@ -53,13 +51,15 @@ public class IDXPerformanceTester implements ApplicationRunner {
 
     public void createGroupAndRun() throws InterruptedException {
         baseGroupId = getBaseGroupId();
+        System.out.println("Base Group Id is " + baseGroupId);
         templateId = getTemplateId();
         System.out.println("Template ID is " + templateId);
         groupIds = createProcessGroups();
-        Thread.sleep(3000);
         instanceGroupTemplate();
         Map<String, String> serviceIds = getProcessorServiceIds();
+        System.out.println("Service number is " + serviceIds.size());
         updateGroupProcessorServiceAttrs(serviceIds);
+        System.out.println("All service attrs have been update.");
         updateGroupProcessorServiceStatus(serviceIds, ServiceStatus.ENABLED);
 //        updateGroupStatus(ProcessGroupStatus.RUNNING);
     }
@@ -67,26 +67,27 @@ public class IDXPerformanceTester implements ApplicationRunner {
 
     public void stopAndDeleteGroup() throws InterruptedException {
         baseGroupId = getBaseGroupId();
+        System.out.println("Base Group Id is " + baseGroupId);
         groupIds = getProcessGroupIds();
+        System.out.println("Group number is " + groupIds.size());
         updateGroupStatus(ProcessGroupStatus.STOPPED);
         Map<String, String> serviceIds = getProcessorServiceIds();
+        System.out.println("Service number is " + serviceIds.size());
         updateGroupProcessorServiceStatus(serviceIds, ServiceStatus.DISABLED);
-        Thread.sleep(2000);
         emptyQueues();
         deleteGroups();
     }
 
     private void emptyQueues() {
         groupIds.forEach(id -> {
-            List<String> connIds = groupService.getProcessGroupConnections(id);
+            List<String> connIds = groupService.getNotEmptyConnections(id);
             connService.emptyQueue(connIds);
             try {
-                Thread.sleep(100);
+                Thread.sleep(50);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
         });
-        System.out.println((new Date()).getTime());
         System.out.println("All queue have been emptied.");
     }
 
@@ -134,7 +135,6 @@ public class IDXPerformanceTester implements ApplicationRunner {
 
     private void updateGroupProcessorServiceStatus(Map<String, String> serviceIds, ServiceStatus status) {
         serviceIds.keySet().forEach(id -> serviceService.updateServiceStatus(id, status));
-        System.out.println((new Date()).getTime());
         System.out.println("Service ids " + serviceIds);
         System.out.println("All processor service has been update " + status);
     }

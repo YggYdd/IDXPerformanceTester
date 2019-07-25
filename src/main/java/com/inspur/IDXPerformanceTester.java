@@ -11,6 +11,8 @@ import com.inspur.service.ServiceControllerService;
 import com.inspur.util.*;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -21,6 +23,7 @@ import java.util.*;
 
 @Service
 public class IDXPerformanceTester implements ApplicationRunner {
+    private static final Logger LOGGER = LoggerFactory.getLogger(IDXPerformanceTester.class);
 
     @Autowired
     NiFiUserHKJpa userJpa;
@@ -51,15 +54,15 @@ public class IDXPerformanceTester implements ApplicationRunner {
 
     public void createGroupAndRun() throws InterruptedException {
         baseGroupId = getBaseGroupId();
-        System.out.println("Base Group Id is " + baseGroupId);
+        LOGGER.info("Base Group Id is " + baseGroupId);
         templateId = getTemplateId();
-        System.out.println("Template ID is " + templateId);
+        LOGGER.info("Template ID is " + templateId);
         groupIds = createProcessGroups();
         instanceGroupTemplate();
         Map<String, String> serviceIds = getProcessorServiceIds();
-        System.out.println("Service number is " + serviceIds.size());
+        LOGGER.info("Service number is " + serviceIds.size());
         updateGroupProcessorServiceAttrs(serviceIds);
-        System.out.println("All service attrs have been update.");
+        LOGGER.info("All service attrs have been update.");
         updateGroupProcessorServiceStatus(serviceIds, ServiceStatus.ENABLED);
 //        updateGroupStatus(ProcessGroupStatus.RUNNING);
     }
@@ -67,12 +70,12 @@ public class IDXPerformanceTester implements ApplicationRunner {
 
     public void stopAndDeleteGroup() throws InterruptedException {
         baseGroupId = getBaseGroupId();
-        System.out.println("Base Group Id is " + baseGroupId);
+        LOGGER.info("Base Group Id is " + baseGroupId);
         groupIds = getProcessGroupIds();
-        System.out.println("Group number is " + groupIds.size());
+        LOGGER.info("Group number is " + groupIds.size());
         updateGroupStatus(ProcessGroupStatus.STOPPED);
         Map<String, String> serviceIds = getProcessorServiceIds();
-        System.out.println("Service number is " + serviceIds.size());
+        LOGGER.info("Service number is " + serviceIds.size());
         updateGroupProcessorServiceStatus(serviceIds, ServiceStatus.DISABLED);
         emptyQueues();
         deleteGroups();
@@ -88,20 +91,19 @@ public class IDXPerformanceTester implements ApplicationRunner {
                 e.printStackTrace();
             }
         });
-        System.out.println("All queue have been emptied.");
+        LOGGER.info("All queue have been emptied.");
     }
 
     private void deleteGroups() {
         groupIds.forEach(id -> {
             String deleteId = groupService.deleteProcessGroup(id);
             if (!deleteId.equals(id)) {
-                System.out.println("Process group " + id + " failed to del.");
+                LOGGER.error("Process group " + id + " failed to del.");
             } else {
                 organJpa.deleteById(id);
             }
         });
-        System.out.println((new Date()).getTime());
-        System.out.println("All groups have been deleted.");
+        LOGGER.info("All groups have been deleted.");
     }
 
     private List<String> getProcessGroupIds() {
@@ -116,12 +118,12 @@ public class IDXPerformanceTester implements ApplicationRunner {
             String result = flowService.updateGroupStatus(id, status);
             if ("".equals(result)) {
                 failCount++;
-                System.out.println("Group " + id + " failed to update status " + status);
+                LOGGER.error("Group " + id + " failed to update status " + status);
             } else {
                 successCount++;
             }
         }
-        System.out.println("Update group status " + status + " success " + successCount + " fail " + failCount);
+        LOGGER.info("Update group status " + status + " success " + successCount + " fail " + failCount);
     }
 
 
@@ -135,8 +137,8 @@ public class IDXPerformanceTester implements ApplicationRunner {
 
     private void updateGroupProcessorServiceStatus(Map<String, String> serviceIds, ServiceStatus status) {
         serviceIds.keySet().forEach(id -> serviceService.updateServiceStatus(id, status));
-        System.out.println("Service ids " + serviceIds);
-        System.out.println("All processor service has been update " + status);
+        LOGGER.info("Service ids " + serviceIds);
+        LOGGER.info("All processor service has been update " + status);
     }
 
     private Map<String, String> getProcessorServiceIds() {
@@ -181,7 +183,7 @@ public class IDXPerformanceTester implements ApplicationRunner {
         if (null == user) {
             throw new RuntimeException("Can not find " + userId + " from db. please check!");
         }
-        System.out.println("Base group ID is " + user.getId());
+        LOGGER.info("Base group ID is " + user.getId());
         return user.getId();
     }
 
@@ -192,13 +194,13 @@ public class IDXPerformanceTester implements ApplicationRunner {
             String result = groupService.instanceTemplate(id, templateId);
             if ("".equals(result)) {
                 failCount++;
-                System.out.println("Process Group " + id + " instance template " + templateId + " failed.");
+                LOGGER.error("Process Group " + id + " instance template " + templateId + " failed.");
             } else {
                 successCount++;
             }
             Thread.sleep(500);
         }
-        System.out.println("Instance group template success count is " + successCount + ", fail count is " + failCount);
+        LOGGER.info("Instance group template success count is " + successCount + ", fail count is " + failCount);
     }
 
     private List<String> createProcessGroups() {
@@ -214,11 +216,11 @@ public class IDXPerformanceTester implements ApplicationRunner {
                 successCount++;
             } else {
                 failCount++;
-                System.out.println("fail to create process group " + groupName);
+                LOGGER.error("fail to create process group " + groupName);
             }
         }
         List<String> ids = saveProcessGroups2DB(idAndName);
-        System.out.println(successCount + " groups are created successfully. " + failCount + " groups are failed!");
+        LOGGER.info(successCount + " groups are created successfully. " + failCount + " groups are failed!");
         return ids;
     }
 

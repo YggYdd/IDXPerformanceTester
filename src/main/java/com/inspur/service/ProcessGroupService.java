@@ -8,6 +8,8 @@ import org.dom4j.Document;
 import org.dom4j.DocumentException;
 import org.dom4j.DocumentHelper;
 import org.dom4j.Element;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -15,6 +17,7 @@ import java.util.*;
 
 @Service
 public class ProcessGroupService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ProcessGroupService.class);
 
     private final String processGroupBaseUri = "/nifi-api/process-groups/";
 
@@ -35,7 +38,7 @@ public class ProcessGroupService {
         try {
             result = HttpUtils.doGet(getUrl, null);
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Error to get group processors ", e);
         }
         return result;
     }
@@ -47,7 +50,7 @@ public class ProcessGroupService {
             String result = HttpUtils.doGet(getUrl, null);
             connIds = getConnIdsFromConnInfo(result);
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Error to get group connections ", e);
         }
         return connIds;
     }
@@ -72,7 +75,7 @@ public class ProcessGroupService {
             String result = HttpUtils.doGet(getUrl, null);
             connIds = getNotEmptyConnIdsFromConnInfo(result);
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Error to get group not empty connections", e);
         }
         return connIds;
     }
@@ -115,7 +118,7 @@ public class ProcessGroupService {
         try {
             result = HttpUtils.doJsonPost(url, params);
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Error to add group ", e);
             return "";
         }
         return getProcessGroupId(result);
@@ -130,7 +133,7 @@ public class ProcessGroupService {
         try {
             result = HttpUtils.doDelete(url, params);
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Error to del group ", e);
         }
 
         if (!"".equals(result)) {
@@ -171,7 +174,7 @@ public class ProcessGroupService {
         try {
             result = HttpUtils.doFilePost(uploadTemplateURL, headers, null, files);
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Error to upload template.", e);
         }
         return getTemplateId(result);
     }
@@ -187,7 +190,7 @@ public class ProcessGroupService {
         try {
             result = HttpUtils.doJsonPost(instanceTmpUrl, params);
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Error to instance template ", e);
         }
         return result;
     }
@@ -196,7 +199,7 @@ public class ProcessGroupService {
         try {
             return JSONObject.fromObject(json).getString("id");
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Error to get group id ", e);
             return "";
         }
     }
@@ -206,7 +209,7 @@ public class ProcessGroupService {
         try {
             doc = DocumentHelper.parseText(xml);
         } catch (DocumentException e) {
-            e.printStackTrace();
+            LOGGER.error("Error to get template id", e);
             return "";
         }
         Element rootElement = doc.getRootElement();

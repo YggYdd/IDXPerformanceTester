@@ -191,6 +191,7 @@ public class ProcessGroupService {
             result = HttpUtils.doJsonPost(instanceTmpUrl, params);
         } catch (Exception e) {
             LOGGER.error("Error to instance template ", e);
+            LOGGER.error("Result is : " + result);
         }
         return result;
     }

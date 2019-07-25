@@ -39,7 +39,7 @@
         </triggeringPolicy>
         <!--定义输出格式-->
         <encoder>
-            <pattern>%d [%thread] %-5level %logger{36} [%file : %line] - %msg%n</pattern>
+            <pattern>%d [%thread] %-5level %logger{36} [line:%line] - %msg%n</pattern>
         </encoder>
     </appender>
 

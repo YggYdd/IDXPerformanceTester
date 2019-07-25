@@ -2,7 +2,7 @@ package com.inspur.util;
 
 public class EnvUtils {
 
-    private static final String NIFI_URL_PREFIX = "https://10.111.24.82:9091";
+/*    private static final String NIFI_URL_PREFIX = "https://10.111.24.82:9091";
     private static final String NIFI_USERNAME = "nifiadmin";
     private static final String NIFI_PASSWORD = "175d6b94-8dd9-40e9-ac7b-5df7dd55e8d9";
 
@@ -12,7 +12,18 @@ public class EnvUtils {
     private static final String AUTH_PWD = "sysadmin";
 
     private static final String REALM = "realm";
-    private static final String CLUSTER = "cluster1";
+    private static final String CLUSTER = "cluster1";*/
+
+    private static final String NIFI_URL_PREFIX = "https://10.110.2.173:9091";
+    private static final String NIFI_USERNAME = "nifiadmin";
+    private static final String NIFI_PASSWORD = "175d6b94-8dd9-40e9-ac7b-5df7dd55e8d9";
+
+    private static final String AUTH_HOST = "10.110.2.173";
+    private static final String AUTH_USER = "dev";
+    private static final String AUTH_PWD = "123";
+
+    private static final String REALM = "realm1234";
+    private static final String CLUSTER = "cluster5029";
 
     public static String getNifiUrlPrefix() {
         return NIFI_URL_PREFIX;

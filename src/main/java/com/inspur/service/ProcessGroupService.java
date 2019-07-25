@@ -2,6 +2,7 @@ package com.inspur.service;
 
 import com.inspur.util.EnvUtils;
 import com.inspur.util.HttpUtils;
+import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
@@ -10,9 +11,7 @@ import org.dom4j.Element;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 public class ProcessGroupService {
@@ -41,6 +40,31 @@ public class ProcessGroupService {
         return result;
     }
 
+    public List<String> getProcessGroupConnections(String groupId) {
+        List<String> connIds = new LinkedList<>();
+        String getUrl = EnvUtils.getNifiUrlPrefix() + processGroupBaseUri + groupId + "/connections";
+        try {
+            String result = HttpUtils.doGet(getUrl, null);
+            connIds = getConnIdsFromConnInfo(result);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return connIds;
+    }
+
+    private List<String> getConnIdsFromConnInfo(String connInfo) {
+        List<String> connIds = new LinkedList<>();
+        JSONObject connInfoJson = JSONObject.fromObject(connInfo);
+        JSONArray connsJson = connInfoJson.getJSONArray("connections");
+        Iterator<JSONObject> iterator = connsJson.iterator();
+        while (iterator.hasNext()){
+            JSONObject connJson = iterator.next();
+            String id = connJson.getString("id");
+            connIds.add(id);
+        }
+        return connIds;
+    }
+
     public String addProcessGroup(String name, String id) {
         String url = EnvUtils.getNifiUrlPrefix() + processGroupBaseUri + id + "/process-groups";
 
@@ -54,8 +78,8 @@ public class ProcessGroupService {
         revision.put("version", 0);
         component.put("name", name);
         component.put("position", position);
-        position.put("x", (int) (Math.random() * 800));
-        position.put("y", (int) (Math.random() * 600));
+        position.put("x", (int) (Math.random() * 4000));
+        position.put("y", (int) (Math.random() * 3000));
 
         String result;
         try {

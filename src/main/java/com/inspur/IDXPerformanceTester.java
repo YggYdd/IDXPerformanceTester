@@ -1,9 +1,12 @@
 package com.inspur;
 
 import com.inspur.bean.NiFiUser;
+import com.inspur.bean.NiFiUserHK;
 import com.inspur.bean.Organ;
-import com.inspur.jpa.NiFiUserJpa;
-import com.inspur.jpa.OrganJpa;
+import com.inspur.bean.OrganHK;
+import com.inspur.jpa.NiFiUserHKJpa;
+import com.inspur.jpa.OrganHKJpa;
+import com.inspur.service.ConnectionsService;
 import com.inspur.service.FlowService;
 import com.inspur.service.ProcessGroupService;
 import com.inspur.service.ServiceControllerService;
@@ -22,10 +25,10 @@ import java.util.*;
 public class IDXPerformanceTester implements ApplicationRunner {
 
     @Autowired
-    NiFiUserJpa userJpa;
+    NiFiUserHKJpa userJpa;
 
     @Autowired
-    OrganJpa organJpa;
+    OrganHKJpa organJpa;
 
     private List<String> groupIds = new LinkedList<>();
     private String templateId = "";
@@ -37,35 +40,54 @@ public class IDXPerformanceTester implements ApplicationRunner {
     private ServiceControllerService serviceService;
     @Autowired
     private FlowService flowService;
+    @Autowired
+    private ConnectionsService connService;
 
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
-        createGroupAndRun();
-//        stopAndDeleteGroup();
+//        createGroupAndRun();
+        stopAndDeleteGroup();
         System.exit(0);
     }
 
-    public void createGroupAndRun() {
+    public void createGroupAndRun() throws InterruptedException {
         baseGroupId = getBaseGroupId();
         templateId = getTemplateId();
         System.out.println("Template ID is " + templateId);
         groupIds = createProcessGroups();
+        Thread.sleep(3000);
         instanceGroupTemplate();
         Map<String, String> serviceIds = getProcessorServiceIds();
         updateGroupProcessorServiceAttrs(serviceIds);
         updateGroupProcessorServiceStatus(serviceIds, ServiceStatus.ENABLED);
-        updateGroupStatus(ProcessGroupStatus.RUNNING);
+//        updateGroupStatus(ProcessGroupStatus.RUNNING);
     }
 
 
-    public void stopAndDeleteGroup() {
+    public void stopAndDeleteGroup() throws InterruptedException {
         baseGroupId = getBaseGroupId();
         groupIds = getProcessGroupIds();
         updateGroupStatus(ProcessGroupStatus.STOPPED);
         Map<String, String> serviceIds = getProcessorServiceIds();
         updateGroupProcessorServiceStatus(serviceIds, ServiceStatus.DISABLED);
+        Thread.sleep(2000);
+        emptyQueues();
         deleteGroups();
+    }
+
+    private void emptyQueues() {
+        groupIds.forEach(id -> {
+            List<String> connIds = groupService.getProcessGroupConnections(id);
+            connService.emptyQueue(connIds);
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
+        System.out.println((new Date()).getTime());
+        System.out.println("All queue have been emptied.");
     }
 
     private void deleteGroups() {
@@ -77,6 +99,8 @@ public class IDXPerformanceTester implements ApplicationRunner {
                 organJpa.deleteById(id);
             }
         });
+        System.out.println((new Date()).getTime());
+        System.out.println("All groups have been deleted.");
     }
 
     private List<String> getProcessGroupIds() {
@@ -110,6 +134,9 @@ public class IDXPerformanceTester implements ApplicationRunner {
 
     private void updateGroupProcessorServiceStatus(Map<String, String> serviceIds, ServiceStatus status) {
         serviceIds.keySet().forEach(id -> serviceService.updateServiceStatus(id, status));
+        System.out.println((new Date()).getTime());
+        System.out.println("Service ids " + serviceIds);
+        System.out.println("All processor service has been update " + status);
     }
 
     private Map<String, String> getProcessorServiceIds() {
@@ -121,7 +148,6 @@ public class IDXPerformanceTester implements ApplicationRunner {
 
             for (int i = 0; i < processorsJson.size(); i++) {
                 JSONObject processorJson = processorsJson.getJSONObject(i);
-                System.out.println(processorJson.toString());
                 JSONObject configJson = processorJson.getJSONObject("component").getJSONObject("config");
                 JSONObject propertiesJson = configJson.getJSONObject("properties");
                 Iterator iterator = propertiesJson.keys();
@@ -131,11 +157,11 @@ public class IDXPerformanceTester implements ApplicationRunner {
                         String propServiceId = propertiesJson.getString(propName);
                         JSONObject serviceJson = configJson.getJSONObject("descriptors").getJSONObject(propName);
                         JSONArray absJson = serviceJson.getJSONArray("allowableValues");
-                        for (int j = 0; j<absJson.size(); j++){
+                        for (int j = 0; j < absJson.size(); j++) {
                             JSONObject abJson = absJson.getJSONObject(j).getJSONObject("allowableValue");
                             String serviceDisplayName = abJson.getString("displayName");
                             String serviceDisplayId = abJson.getString("value");
-                            if (serviceDisplayId.equals(propServiceId)){
+                            if (serviceDisplayId.equals(propServiceId)) {
                                 ids.put(propServiceId, serviceDisplayName);
                             }
                         }
@@ -147,8 +173,11 @@ public class IDXPerformanceTester implements ApplicationRunner {
     }
 
     private String getBaseGroupId() {
+        if (!"".equals(Constants.getBaseGroupId())) {
+            return Constants.getBaseGroupId();
+        }
         String userId = EnvUtils.getAuthUser() + "-" + EnvUtils.getCLUSTER();
-        NiFiUser user = userJpa.findByUserId(userId);
+        NiFiUserHK user = userJpa.findByUserId(userId);
         if (null == user) {
             throw new RuntimeException("Can not find " + userId + " from db. please check!");
         }
@@ -156,7 +185,7 @@ public class IDXPerformanceTester implements ApplicationRunner {
         return user.getId();
     }
 
-    private void instanceGroupTemplate() {
+    private void instanceGroupTemplate() throws InterruptedException {
         int failCount = 0;
         int successCount = 0;
         for (String id : groupIds) {
@@ -167,6 +196,7 @@ public class IDXPerformanceTester implements ApplicationRunner {
             } else {
                 successCount++;
             }
+            Thread.sleep(500);
         }
         System.out.println("Instance group template success count is " + successCount + ", fail count is " + failCount);
     }
@@ -193,10 +223,10 @@ public class IDXPerformanceTester implements ApplicationRunner {
     }
 
     private List<String> saveProcessGroups2DB(Map<String, String> ids) {
-        String userId = EnvUtils.getAuthUser() + "-" + EnvUtils.getCLUSTER();
+        String userId = EnvUtils.getAuthUser() + "-" + EnvUtils.getREALM();
         List<String> savedIds = new LinkedList<>();
         ids.forEach((k, v) -> {
-            Organ organ = new Organ();
+            OrganHK organ = new OrganHK();
             organ.setId(k);
             organ.setName(v);
             organ.setParentId("0");

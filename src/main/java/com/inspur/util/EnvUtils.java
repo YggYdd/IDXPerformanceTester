@@ -1,6 +1,10 @@
 package com.inspur.util;
 
+import com.inspur.bean.EnvProperties;
+
 public class EnvUtils {
+
+    private static EnvProperties envProperties;
 
 /*    private static final String NIFI_URL_PREFIX = "https://10.111.24.82:9091";
     private static final String NIFI_USERNAME = "nifiadmin";
@@ -13,6 +17,10 @@ public class EnvUtils {
 
     private static final String REALM = "realm";
     private static final String CLUSTER = "cluster1";*/
+
+    public static void setEnvProperties(EnvProperties envProperties) {
+        EnvUtils.envProperties = envProperties;
+    }
 
     private static final String NIFI_URL_PREFIX = "https://10.110.2.173:9091";
     private static final String NIFI_USERNAME = "nifiadmin";

@@ -5,6 +5,8 @@ import com.inspur.util.HttpUtils;
 import com.inspur.util.ProcessGroupStatus;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -14,6 +16,7 @@ import java.util.Map;
 
 @Service
 public class FlowService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(FlowService.class);
 
     private final String flowBaseUri = "/nifi-api/flow/";
 
@@ -30,7 +33,7 @@ public class FlowService {
         try {
             result = HttpUtils.doJsonPut(url, params);
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Error to update group status " + id, e);
         }
         return result;
     }
@@ -42,7 +45,7 @@ public class FlowService {
         try {
             result = HttpUtils.doGet(url, null);
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Error to get process group ids " + parentGroupId, e);
         }
 
         ids = analysisProcessGroupIds(result);

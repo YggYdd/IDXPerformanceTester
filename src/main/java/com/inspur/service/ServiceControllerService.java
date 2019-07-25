@@ -4,6 +4,8 @@ import com.inspur.util.EnvUtils;
 import com.inspur.util.HttpUtils;
 import com.inspur.util.ServiceStatus;
 import net.sf.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -12,6 +14,7 @@ import java.util.UUID;
 
 @Service
 public class ServiceControllerService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ServiceControllerService.class);
 
     private final String serviceBaseUri = "/nifi-api/controller-services/";
 
@@ -22,7 +25,7 @@ public class ServiceControllerService {
         try {
             result = HttpUtils.doGet(url, null);
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Error to get service info " + id, e);
         }
         return result;
     }
@@ -40,7 +43,7 @@ public class ServiceControllerService {
         try {
             result = HttpUtils.doJsonPut(url, params);
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Error to update service status " + id, e);
         }
         return result;
     }
@@ -62,8 +65,8 @@ public class ServiceControllerService {
             result = HttpUtils.doJsonPut(url, params);
             returnId = getIdFromResult(result);
         } catch (Exception e) {
-            e.printStackTrace();
-            System.out.println(result);
+            LOGGER.error(result);
+            LOGGER.error("Error to update attributes " + id, e);
         }
         return returnId;
     }
@@ -94,7 +97,7 @@ public class ServiceControllerService {
         try {
             name = getServiceNameFromResult(serviceInfo);
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error(e.toString());
         }
         return name;
     }

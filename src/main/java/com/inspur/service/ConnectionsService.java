@@ -2,6 +2,8 @@ package com.inspur.service;
 
 import com.inspur.util.EnvUtils;
 import com.inspur.util.HttpUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -9,6 +11,7 @@ import java.util.List;
 
 @Service
 public class ConnectionsService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ConnectionsService.class);
 
     private final String connBaseUri = "/nifi-api/flowfile-queues/";
 
@@ -27,7 +30,7 @@ public class ConnectionsService {
         try {
             result = HttpUtils.doJsonPost(url, new HashMap<>());
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Error to empty queue " + id, e);
         }
     }
 }

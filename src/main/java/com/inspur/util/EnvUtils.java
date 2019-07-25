@@ -6,35 +6,15 @@ public class EnvUtils {
 
     private static EnvProperties envProperties;
 
-/*    private static final String NIFI_URL_PREFIX = "https://10.111.24.82:9091";
-    private static final String NIFI_USERNAME = "nifiadmin";
-    private static final String NIFI_PASSWORD = "175d6b94-8dd9-40e9-ac7b-5df7dd55e8d9";
-
-
-    private static final String AUTH_HOST = "10.111.24.82";
-    private static final String AUTH_USER = "sysadmin";
-    private static final String AUTH_PWD = "sysadmin";
-
-    private static final String REALM = "realm";
-    private static final String CLUSTER = "cluster1";*/
-
     public static void setEnvProperties(EnvProperties envProperties) {
         EnvUtils.envProperties = envProperties;
     }
 
-    private static final String NIFI_URL_PREFIX = "https://10.110.2.173:9091";
     private static final String NIFI_USERNAME = "nifiadmin";
     private static final String NIFI_PASSWORD = "175d6b94-8dd9-40e9-ac7b-5df7dd55e8d9";
 
-    private static final String AUTH_HOST = "10.110.2.173";
-    private static final String AUTH_USER = "dev";
-    private static final String AUTH_PWD = "123";
-
-    private static final String REALM = "realm1234";
-    private static final String CLUSTER = "cluster5029";
-
     public static String getNifiUrlPrefix() {
-        return NIFI_URL_PREFIX;
+        return envProperties.getNifiUrlPrefix();
     }
 
     public static String getNifiUsername() {
@@ -46,23 +26,23 @@ public class EnvUtils {
     }
 
     public static String getAuthHost() {
-        return AUTH_HOST;
+        return envProperties.getAuthHost();
     }
 
     public static String getAuthUser() {
-        return AUTH_USER;
+        return envProperties.getAuthUser();
     }
 
     public static String getAuthPwd() {
-        return AUTH_PWD;
+        return envProperties.getAuthPasswd();
     }
 
     public static String getREALM() {
-        return REALM;
+        return envProperties.getRealm();
     }
 
     public static String getCLUSTER() {
-        return CLUSTER;
+        return envProperties.getCluster();
     }
 
 

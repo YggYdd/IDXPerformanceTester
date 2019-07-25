@@ -4,10 +4,7 @@ import com.inspur.bean.NiFiUserHK;
 import com.inspur.bean.OrganHK;
 import com.inspur.jpa.NiFiUserHKJpa;
 import com.inspur.jpa.OrganHKJpa;
-import com.inspur.service.ConnectionsService;
-import com.inspur.service.FlowService;
-import com.inspur.service.ProcessGroupService;
-import com.inspur.service.ServiceControllerService;
+import com.inspur.service.*;
 import com.inspur.util.*;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
@@ -47,8 +44,9 @@ public class IDXPerformanceTester implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
-//        createGroupAndRun();
-        stopAndDeleteGroup();
+        new PorpertiesLoader().loadProperties("");
+        createGroupAndRun();
+//        stopAndDeleteGroup();
         System.exit(0);
     }
 
@@ -137,7 +135,6 @@ public class IDXPerformanceTester implements ApplicationRunner {
 
     private void updateGroupProcessorServiceStatus(Map<String, String> serviceIds, ServiceStatus status) {
         serviceIds.keySet().forEach(id -> serviceService.updateServiceStatus(id, status));
-        LOGGER.info("Service ids " + serviceIds);
         LOGGER.info("All processor service has been update " + status);
     }
 
@@ -198,7 +195,7 @@ public class IDXPerformanceTester implements ApplicationRunner {
             } else {
                 successCount++;
             }
-            Thread.sleep(500);
+            Thread.sleep(1000);
         }
         LOGGER.info("Instance group template success count is " + successCount + ", fail count is " + failCount);
     }
@@ -241,12 +238,12 @@ public class IDXPerformanceTester implements ApplicationRunner {
     }
 
     private String getTemplateId() {
-        if ("".equals(Constants.TEMPLATE_ID)) {
-            if ("".equals(Constants.TEMPLATE_PATH)) {
+        if ("".equals(Constants.getTemplateId())) {
+            if ("".equals(Constants.getTemplatePath())) {
                 throw new RuntimeException("Can not find template id or file path. one of them should be configured. ");
             }
-            return groupService.uploadTemplate(Constants.TEMPLATE_PATH);
+            return groupService.uploadTemplate(Constants.getTemplatePath());
         }
-        return Constants.TEMPLATE_ID;
+        return Constants.getTemplateId();
     }
 }

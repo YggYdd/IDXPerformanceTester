@@ -28,6 +28,7 @@ public class PorpertiesLoader {
 
     private void initEnvProperties(Properties prop) {
         EnvProperties envProperties = new EnvProperties();
+        envProperties.setNifiUrlPrefix(prop.getProperty("nifiUrlPrefix"));
         envProperties.setAuthHost(prop.getProperty("authHost"));
         envProperties.setAuthUser(prop.getProperty("authUser"));
         envProperties.setAuthPasswd(prop.getProperty("authPasswd"));

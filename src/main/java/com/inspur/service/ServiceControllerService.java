@@ -77,13 +77,17 @@ public class ServiceControllerService {
         if ("".equals(serviceInfo)) {
             return clientIdAndVersion;
         }
-        JSONObject jsonInfo = JSONObject.fromObject(serviceInfo);
-        JSONObject jsonRevision = jsonInfo.getJSONObject("revision");
-        clientIdAndVersion.put("version", jsonRevision.getString("version"));
-        if (jsonRevision.has("clientId")) {
-            clientIdAndVersion.put("clientId", jsonRevision.getString("clientId"));
-        } else {
-            clientIdAndVersion.put("clientId", UUID.randomUUID().toString());
+        try {
+            JSONObject jsonInfo = JSONObject.fromObject(serviceInfo);
+            JSONObject jsonRevision = jsonInfo.getJSONObject("revision");
+            clientIdAndVersion.put("version", jsonRevision.getString("version"));
+            if (jsonRevision.has("clientId")) {
+                clientIdAndVersion.put("clientId", jsonRevision.getString("clientId"));
+            } else {
+                clientIdAndVersion.put("clientId", UUID.randomUUID().toString());
+            }
+        } catch (Exception e) {
+            LOGGER.error("Error to get service revision \n" + serviceInfo, e);
         }
         return clientIdAndVersion;
     }

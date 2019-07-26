@@ -54,13 +54,16 @@ public class FlowService {
 
     private List<String> analysisProcessGroupIds(String result) {
         List<String> ids = new LinkedList<>();
-        JSONObject jsonObject = JSONObject.fromObject(result);
-        JSONArray processGroupsJson = jsonObject
-                .getJSONObject("processGroupFlow")
-                .getJSONObject("flow")
-                .getJSONArray("processGroups");
-        processGroupsJson.stream().forEach(e -> ids.add(((JSONObject) e).getString("id")));
-
+        try {
+            JSONObject jsonObject = JSONObject.fromObject(result);
+            JSONArray processGroupsJson = jsonObject
+                    .getJSONObject("processGroupFlow")
+                    .getJSONObject("flow")
+                    .getJSONArray("processGroups");
+            processGroupsJson.stream().forEach(e -> ids.add(((JSONObject) e).getString("id")));
+        } catch (Exception e) {
+            LOGGER.error("Error to get group ids :" + result, e);
+        }
         return ids;
     }
 }

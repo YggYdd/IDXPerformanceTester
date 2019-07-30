@@ -71,11 +71,13 @@ public class ProcessGroupService {
     public List<String> getNotEmptyConnections(String groupId) {
         List<String> connIds = new LinkedList<>();
         String getUrl = EnvUtils.getNifiUrlPrefix() + processGroupBaseUri + groupId + "/connections";
+        String result = "";
         try {
-            String result = HttpUtils.doGet(getUrl, null);
+            result = HttpUtils.doGet(getUrl, null);
             connIds = getNotEmptyConnIdsFromConnInfo(result);
         } catch (Exception e) {
             LOGGER.error("Error to get group not empty connections", e);
+            LOGGER.error("Result is :" + result);
         }
         return connIds;
     }
@@ -89,7 +91,7 @@ public class ProcessGroupService {
             JSONObject connJson = iterator.next();
             JSONObject snapshot = connJson.getJSONObject("status").getJSONObject("aggregateSnapshot");
             int ffQueued = snapshot.getInt("flowFilesQueued");
-            int queuedCount = Integer.parseInt(snapshot.getString("queuedCount"));
+            int queuedCount = Integer.parseInt(snapshot.getString("queuedCount").replace(",", ""));
             if (ffQueued > 0 || queuedCount > 0) {
                 String id = connJson.getString("id");
                 connIds.add(id);

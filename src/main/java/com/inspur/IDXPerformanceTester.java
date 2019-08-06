@@ -28,7 +28,7 @@ public class IDXPerformanceTester implements ApplicationRunner {
     @Autowired
     OrganHKJpa organJpa;
 
-    private List<String> groupIds = new LinkedList<>();
+
     private String templateId = "";
     private String baseGroupId = "";
 
@@ -55,73 +55,96 @@ public class IDXPerformanceTester implements ApplicationRunner {
         LOGGER.info("Base Group Id is " + baseGroupId);
         templateId = getTemplateId();
         LOGGER.info("Template ID is " + templateId);
-        groupIds = createProcessGroups();
-        instanceGroupTemplate();
-        Map<String, String> serviceIds = getProcessorServiceIds();
-        LOGGER.info("Service number is " + serviceIds.size());
-        updateGroupProcessorServiceAttrs(serviceIds);
-        LOGGER.info("All service attrs have been update.");
-        updateGroupProcessorServiceStatus(serviceIds, ServiceStatus.ENABLED);
-//        updateGroupStatus(ProcessGroupStatus.RUNNING);
+        List<String> groupIds = createProcessGroups();
+//        groupIds = getProcessGroupIdsFromNiFi();
+        doCreateAndRun(groupIds);
+    }
+
+    private void doCreateAndRun(List<String> groupIds) {
+        groupIds.forEach(id -> {
+            boolean isInstanceSuccess = instanceGroupTemplate(id);
+            if (!isInstanceSuccess) {
+                return;
+            }
+            Map<String, String> serviceIds = getProcessorServiceIds(id);
+            if (serviceIds.size() > 0) {
+                updateGroupProcessorServiceAttrs(serviceIds);
+                LOGGER.info("All service attrs have been update.");
+                updateGroupProcessorServiceStatus(serviceIds, ServiceStatus.ENABLED);
+            }
+            updateGroupStatus(id, ProcessGroupStatus.RUNNING);
+        });
     }
 
 
-    public void stopAndDeleteGroup() throws InterruptedException {
+    public void stopAndDeleteGroup(){
         baseGroupId = getBaseGroupId();
         LOGGER.info("Base Group Id is " + baseGroupId);
-        groupIds = getProcessGroupIds();
+        List<String> groupIds = getProcessGroupIdsFromDB();
         LOGGER.info("Group number is " + groupIds.size());
-        updateGroupStatus(ProcessGroupStatus.STOPPED);
-        Map<String, String> serviceIds = getProcessorServiceIds();
-        LOGGER.info("Service number is " + serviceIds.size());
-        updateGroupProcessorServiceStatus(serviceIds, ServiceStatus.DISABLED);
-        emptyQueues();
-        deleteGroups();
+        doStopAndDeleteGroup(groupIds);
     }
 
-    private void emptyQueues() {
+    private void doStopAndDeleteGroup(List<String> groupIds) {
         groupIds.forEach(id -> {
-            List<String> connIds = groupService.getNotEmptyConnections(id);
-            connService.emptyQueue(connIds);
-            try {
-                Thread.sleep(50);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+            updateGroupStatus(id, ProcessGroupStatus.STOPPED);
+            Map<String, String> serviceIds = getProcessorServiceIds(id);
+            if (serviceIds.size() > 0) {
+                updateGroupProcessorServiceStatus(serviceIds, ServiceStatus.DISABLED);
             }
+            emptyProcessorQueues(id);
+            deleteGroup(id);
         });
-        LOGGER.info("All queue have been emptied.");
+
     }
 
-    private void deleteGroups() {
-        groupIds.forEach(id -> {
-            String deleteId = groupService.deleteProcessGroup(id);
-            if (!deleteId.equals(id)) {
-                LOGGER.error("Process group " + id + " failed to del.");
-            } else {
-                organJpa.deleteById(id);
-            }
-        });
-        LOGGER.info("All groups have been deleted.");
+    private void emptyProcessorQueues(String groupId) {
+        List<String> connIds = groupService.getNotEmptyConnections(groupId);
+        connService.emptyQueue(connIds);
+        try {
+            Thread.sleep(50);
+        } catch (InterruptedException e) {
+            LOGGER.error(e.getMessage());
+        }
     }
 
-    private List<String> getProcessGroupIds() {
-        //todo 数据库查询？？
+    private void deleteGroup(String id){
+        String deleteId = groupService.deleteProcessGroup(id);
+        if (!deleteId.equals(id)) {
+            LOGGER.error("Process group " + id + " failed to del.");
+        } else {
+            organJpa.deleteById(id);
+        }
+    }
+
+    private List<String> getProcessGroupIdsFromNiFi() {
         return flowService.getProcessGroupIds(baseGroupId);
     }
 
-    private void updateGroupStatus(ProcessGroupStatus status) {
-        int failCount = 0;
-        int successCount = 0;
-        for (String id : groupIds) {
-            String result = flowService.updateGroupStatus(id, status);
+    private List<String> getProcessGroupIdsFromDB() {
+        String userId = EnvUtils.getAuthUser() + "-" + EnvUtils.getREALM();
+        return organJpa.findAllIdByUserId(userId);
+    }
+
+
+    private boolean updateGroupStatus(String groupId, ProcessGroupStatus status) {
+        boolean isSuccess = false;
+        String result = flowService.updateGroupStatus(groupId, status);
+        for (int i = 0; i < 3; i++) {
+
             if ("".equals(result)) {
-                failCount++;
-                LOGGER.error("Group " + id + " failed to update status " + status);
+                LOGGER.error("Group " + groupId + " failed to update status " + status);
             } else {
-                successCount++;
+                isSuccess = true;
+                break;
+            }
+            try {
+                Thread.sleep((long) (Math.pow(2, i) * 1000L));
+            } catch (InterruptedException e) {
+                LOGGER.error("Error to retry update group status, group id is " + groupId, e);
             }
         }
-        LOGGER.info("Update group status " + status + " success " + successCount + " fail " + failCount);
+        return isSuccess;
     }
 
 
@@ -133,36 +156,35 @@ public class IDXPerformanceTester implements ApplicationRunner {
         });
     }
 
+
     private void updateGroupProcessorServiceStatus(Map<String, String> serviceIds, ServiceStatus status) {
         serviceIds.keySet().forEach(id -> serviceService.updateServiceStatus(id, status));
         LOGGER.info("All processor service has been update " + status);
     }
 
-    private Map<String, String> getProcessorServiceIds() {
+    private Map<String, String> getProcessorServiceIds(String groupId) {
         Map<String, String> ids = new HashMap<>();
-        for (String id : groupIds) {
-            String result = groupService.getProcessGroupProcessors(id);
-            JSONObject resultJson = JSONObject.fromObject(result);
-            JSONArray processorsJson = resultJson.getJSONArray("processors");
+        String result = groupService.getProcessGroupProcessors(groupId);
+        JSONObject resultJson = JSONObject.fromObject(result);
+        JSONArray processorsJson = resultJson.getJSONArray("processors");
 
-            for (int i = 0; i < processorsJson.size(); i++) {
-                JSONObject processorJson = processorsJson.getJSONObject(i);
-                JSONObject configJson = processorJson.getJSONObject("component").getJSONObject("config");
-                JSONObject propertiesJson = configJson.getJSONObject("properties");
-                Iterator iterator = propertiesJson.keys();
-                while (iterator.hasNext()) {
-                    String propName = (String) iterator.next();
-                    if (propName.toLowerCase().contains("service")) {
-                        String propServiceId = propertiesJson.getString(propName);
-                        JSONObject serviceJson = configJson.getJSONObject("descriptors").getJSONObject(propName);
-                        JSONArray absJson = serviceJson.getJSONArray("allowableValues");
-                        for (int j = 0; j < absJson.size(); j++) {
-                            JSONObject abJson = absJson.getJSONObject(j).getJSONObject("allowableValue");
-                            String serviceDisplayName = abJson.getString("displayName");
-                            String serviceDisplayId = abJson.getString("value");
-                            if (serviceDisplayId.equals(propServiceId)) {
-                                ids.put(propServiceId, serviceDisplayName);
-                            }
+        for (int i = 0; i < processorsJson.size(); i++) {
+            JSONObject processorJson = processorsJson.getJSONObject(i);
+            JSONObject configJson = processorJson.getJSONObject("component").getJSONObject("config");
+            JSONObject propertiesJson = configJson.getJSONObject("properties");
+            Iterator iterator = propertiesJson.keys();
+            while (iterator.hasNext()) {
+                String propName = (String) iterator.next();
+                if (propName.toLowerCase().contains("service")) {
+                    String propServiceId = propertiesJson.getString(propName);
+                    JSONObject serviceJson = configJson.getJSONObject("descriptors").getJSONObject(propName);
+                    JSONArray absJson = serviceJson.getJSONArray("allowableValues");
+                    for (int j = 0; j < absJson.size(); j++) {
+                        JSONObject abJson = absJson.getJSONObject(j).getJSONObject("allowableValue");
+                        String serviceDisplayName = abJson.getString("displayName");
+                        String serviceDisplayId = abJson.getString("value");
+                        if (serviceDisplayId.equals(propServiceId)) {
+                            ids.put(propServiceId, serviceDisplayName);
                         }
                     }
                 }
@@ -175,7 +197,7 @@ public class IDXPerformanceTester implements ApplicationRunner {
         if (!"".equals(Constants.getBaseGroupId())) {
             return Constants.getBaseGroupId();
         }
-        String userId = EnvUtils.getAuthUser() + "-" + EnvUtils.getCLUSTER();
+        String userId = EnvUtils.getAuthUser() + "-" + EnvUtils.getREALM();
         NiFiUserHK user = userJpa.findByUserId(userId);
         if (null == user) {
             throw new RuntimeException("Can not find " + userId + " from db. please check!");
@@ -184,29 +206,32 @@ public class IDXPerformanceTester implements ApplicationRunner {
         return user.getId();
     }
 
-    private void instanceGroupTemplate() throws InterruptedException {
-        int failCount = 0;
-        int successCount = 0;
-        for (String id : groupIds) {
-            String result = groupService.instanceTemplate(id, templateId);
+    private boolean instanceGroupTemplate(String groupId) {
+        boolean isSuccess = false;
+        for (int i = 0; i < 3; i++) {
+            String result = groupService.instanceTemplate(groupId, templateId);
             if ("".equals(result)) {
-                failCount++;
-                LOGGER.error("Process Group " + id + " instance template " + templateId + " failed.");
+                LOGGER.error("Process Group " + groupId + " instance template " + templateId + " failed.");
             } else {
-                successCount++;
+                isSuccess = true;
+                break;
             }
-            Thread.sleep(1000);
+            try {
+                Thread.sleep((long) (Math.pow(2, i) * 1000L));
+            } catch (InterruptedException e) {
+                LOGGER.error("Error to retry instance group template, group id is " + groupId, e);
+            }
         }
-        LOGGER.info("Instance group template success count is " + successCount + ", fail count is " + failCount);
+        return isSuccess;
     }
 
     private List<String> createProcessGroups() {
         Map<String, String> idAndName = new HashMap<>();
         int failCount = 0;
         int successCount = 0;
-        for (int i = 0; i < Constants.getGroupNum(); i++) {
+        for (int i = 1; i < Constants.getGroupNum() + 1; i++) {
 
-            String groupName = "IDXPerformance-" + i;
+            String groupName = "IDXPerformance-8-" + i;
             String resultGroupId = groupService.addProcessGroup(groupName, baseGroupId);
             if (!"".equals(resultGroupId)) {
                 idAndName.put(resultGroupId, groupName);

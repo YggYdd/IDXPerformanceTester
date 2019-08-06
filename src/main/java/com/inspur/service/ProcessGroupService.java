@@ -3,6 +3,7 @@ package com.inspur.service;
 import com.inspur.util.EnvUtils;
 import com.inspur.util.HttpUtils;
 import net.sf.json.JSONArray;
+import net.sf.json.JSONException;
 import net.sf.json.JSONObject;
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
@@ -84,7 +85,13 @@ public class ProcessGroupService {
 
     private List<String> getNotEmptyConnIdsFromConnInfo(String connInfo) {
         List<String> connIds = new LinkedList<>();
-        JSONObject connInfoJson = JSONObject.fromObject(connInfo);
+        JSONObject connInfoJson;
+        try {
+            connInfoJson = JSONObject.fromObject(connInfo);
+        } catch (JSONException e) {
+            LOGGER.error("Error to get connection ids from info. Info is " + connInfo, e);
+            return connIds;
+        }
         JSONArray connsJson = connInfoJson.getJSONArray("connections");
         Iterator<JSONObject> iterator = connsJson.iterator();
         while (iterator.hasNext()) {

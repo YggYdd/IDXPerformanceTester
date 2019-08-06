@@ -45,8 +45,8 @@ public class IDXPerformanceTester implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) throws Exception {
         new PorpertiesLoader().loadProperties("");
-        createGroupAndRun();
-//        stopAndDeleteGroup();
+//        createGroupAndRun();
+        stopAndDeleteGroup();
         System.exit(0);
     }
 
@@ -68,16 +68,21 @@ public class IDXPerformanceTester implements ApplicationRunner {
             }
             Map<String, String> serviceIds = getProcessorServiceIds(id);
             if (serviceIds.size() > 0) {
-                updateGroupProcessorServiceAttrs(serviceIds);
-                LOGGER.info("All service attrs have been update.");
-                updateGroupProcessorServiceStatus(serviceIds, ServiceStatus.ENABLED);
+                boolean updateResult = updateGroupProcessorServiceAttrs(serviceIds);
+                if (updateResult) {
+                    updateGroupProcessorServiceStatus(serviceIds, ServiceStatus.ENABLED);
+                    updateGroupStatus(id, ProcessGroupStatus.RUNNING);
+                } else {
+                    LOGGER.warn("Group " + id + " service enable failed.");
+                }
+                return;
             }
             updateGroupStatus(id, ProcessGroupStatus.RUNNING);
         });
     }
 
 
-    public void stopAndDeleteGroup(){
+    public void stopAndDeleteGroup() {
         baseGroupId = getBaseGroupId();
         LOGGER.info("Base Group Id is " + baseGroupId);
         List<String> groupIds = getProcessGroupIdsFromDB();
@@ -108,7 +113,7 @@ public class IDXPerformanceTester implements ApplicationRunner {
         }
     }
 
-    private void deleteGroup(String id){
+    private void deleteGroup(String id) {
         String deleteId = groupService.deleteProcessGroup(id);
         if (!deleteId.equals(id)) {
             LOGGER.error("Process group " + id + " failed to del.");
@@ -129,9 +134,8 @@ public class IDXPerformanceTester implements ApplicationRunner {
 
     private boolean updateGroupStatus(String groupId, ProcessGroupStatus status) {
         boolean isSuccess = false;
-        String result = flowService.updateGroupStatus(groupId, status);
         for (int i = 0; i < 3; i++) {
-
+            String result = flowService.updateGroupStatus(groupId, status);
             if ("".equals(result)) {
                 LOGGER.error("Group " + groupId + " failed to update status " + status);
             } else {
@@ -148,12 +152,19 @@ public class IDXPerformanceTester implements ApplicationRunner {
     }
 
 
-    private void updateGroupProcessorServiceAttrs(Map<String, String> ids) {
-        ids.forEach((id, displayName) -> {
-            if (Constants.getServiceToBeUpdated().keySet().contains(displayName)) {
-                serviceService.updateServiceAttributes(id, (Map<String, String>) Constants.getServiceToBeUpdated().get(displayName));
+    private boolean updateGroupProcessorServiceAttrs(Map<String, String> ids) {
+        boolean isSuccess = true;
+        for (Map.Entry<String, String> entry : ids.entrySet()) {
+            if (Constants.getServiceToBeUpdated().keySet().contains(entry.getValue())) {
+                String serviceId = serviceService.updateServiceAttributes(entry.getKey(), (Map<String, String>) Constants.getServiceToBeUpdated().get(entry.getValue()));
+                if ("".equals(serviceId)) {
+                    isSuccess = false;
+                    LOGGER.error("Error to update service " + entry.getKey() + " attribute ");
+                    continue;
+                }
             }
-        });
+        }
+        return isSuccess;
     }
 
 

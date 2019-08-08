@@ -7,6 +7,7 @@ import com.inspur.jpa.OrganHKJpa;
 import com.inspur.service.*;
 import com.inspur.util.*;
 import net.sf.json.JSONArray;
+import net.sf.json.JSONException;
 import net.sf.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,16 +23,16 @@ import java.util.*;
 public class IDXPerformanceTester implements ApplicationRunner {
     private static final Logger LOGGER = LoggerFactory.getLogger(IDXPerformanceTester.class);
 
-    @Autowired
-    NiFiUserHKJpa userJpa;
-
-    @Autowired
-    OrganHKJpa organJpa;
-
-
     private String templateId = "";
     private String baseGroupId = "";
 
+    private long successCount = 0;
+    private long failCount = 0;
+
+    @Autowired
+    NiFiUserHKJpa userJpa;
+    @Autowired
+    OrganHKJpa organJpa;
     @Autowired
     private ProcessGroupService groupService;
     @Autowired
@@ -47,6 +48,7 @@ public class IDXPerformanceTester implements ApplicationRunner {
         new PorpertiesLoader().loadProperties("");
 //        createGroupAndRun();
         stopAndDeleteGroup();
+        LOGGER.info("Success count is " + successCount + " Fail count is " + failCount);
         System.exit(0);
     }
 
@@ -56,7 +58,7 @@ public class IDXPerformanceTester implements ApplicationRunner {
         templateId = getTemplateId();
         LOGGER.info("Template ID is " + templateId);
         List<String> groupIds = createProcessGroups();
-//        groupIds = getProcessGroupIdsFromNiFi();
+//      List<String> groupIds = getProcessGroupIdsFromNiFi();
         doCreateAndRun(groupIds);
     }
 
@@ -64,6 +66,7 @@ public class IDXPerformanceTester implements ApplicationRunner {
         groupIds.forEach(id -> {
             boolean isInstanceSuccess = instanceGroupTemplate(id);
             if (!isInstanceSuccess) {
+                failCount++;
                 return;
             }
             Map<String, String> serviceIds = getProcessorServiceIds(id);
@@ -73,11 +76,21 @@ public class IDXPerformanceTester implements ApplicationRunner {
                     updateGroupProcessorServiceStatus(serviceIds, ServiceStatus.ENABLED);
                     updateGroupStatus(id, ProcessGroupStatus.RUNNING);
                 } else {
+                    failCount++;
                     LOGGER.warn("Group " + id + " service enable failed.");
                 }
                 return;
             }
-            updateGroupStatus(id, ProcessGroupStatus.RUNNING);
+            if (updateGroupStatus(id, ProcessGroupStatus.RUNNING)) {
+                successCount++;
+            } else {
+                failCount++;
+            }
+            try {
+                Thread.sleep(500L);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         });
     }
 
@@ -86,13 +99,17 @@ public class IDXPerformanceTester implements ApplicationRunner {
         baseGroupId = getBaseGroupId();
         LOGGER.info("Base Group Id is " + baseGroupId);
         List<String> groupIds = getProcessGroupIdsFromDB();
+//        List<String> groupIds = getProcessGroupIdsFromNiFi();
         LOGGER.info("Group number is " + groupIds.size());
         doStopAndDeleteGroup(groupIds);
     }
 
     private void doStopAndDeleteGroup(List<String> groupIds) {
         groupIds.forEach(id -> {
-            updateGroupStatus(id, ProcessGroupStatus.STOPPED);
+            boolean updateResult = updateGroupStatus(id, ProcessGroupStatus.STOPPED);
+            if (!updateResult) {
+                return;
+            }
             Map<String, String> serviceIds = getProcessorServiceIds(id);
             if (serviceIds.size() > 0) {
                 updateGroupProcessorServiceStatus(serviceIds, ServiceStatus.DISABLED);
@@ -137,7 +154,7 @@ public class IDXPerformanceTester implements ApplicationRunner {
         for (int i = 0; i < 3; i++) {
             String result = flowService.updateGroupStatus(groupId, status);
             if ("".equals(result)) {
-                LOGGER.error("Group " + groupId + " failed to update status " + status);
+                LOGGER.warn("Group " + groupId + " failed to update status " + status);
             } else {
                 isSuccess = true;
                 break;
@@ -147,6 +164,9 @@ public class IDXPerformanceTester implements ApplicationRunner {
             } catch (InterruptedException e) {
                 LOGGER.error("Error to retry update group status, group id is " + groupId, e);
             }
+        }
+        if (!isSuccess) {
+            LOGGER.error("Error to update group " + groupId + " status " + status);
         }
         return isSuccess;
     }
@@ -176,7 +196,14 @@ public class IDXPerformanceTester implements ApplicationRunner {
     private Map<String, String> getProcessorServiceIds(String groupId) {
         Map<String, String> ids = new HashMap<>();
         String result = groupService.getProcessGroupProcessors(groupId);
-        JSONObject resultJson = JSONObject.fromObject(result);
+        JSONObject resultJson;
+        try {
+            resultJson = JSONObject.fromObject(result);
+        } catch (JSONException e) {
+            LOGGER.error("Error to get group processors info, response is " + result);
+            return ids;
+        }
+
         JSONArray processorsJson = resultJson.getJSONArray("processors");
 
         for (int i = 0; i < processorsJson.size(); i++) {
@@ -242,7 +269,7 @@ public class IDXPerformanceTester implements ApplicationRunner {
         int successCount = 0;
         for (int i = 1; i < Constants.getGroupNum() + 1; i++) {
 
-            String groupName = "IDXPerformance-8-" + i;
+            String groupName = "IDXPerformance-3-" + i;
             String resultGroupId = groupService.addProcessGroup(groupName, baseGroupId);
             if (!"".equals(resultGroupId)) {
                 idAndName.put(resultGroupId, groupName);

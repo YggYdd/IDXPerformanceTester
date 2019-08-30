@@ -4,12 +4,15 @@ package com.inspur.service;
 import com.inspur.util.EnvUtils;
 import com.inspur.util.HttpUtils;
 import net.sf.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
 public class ProcessorService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ProcessorService.class);
 
     private final String processorsBaseUri = "/nifi-api/processors/";
 
@@ -20,7 +23,7 @@ public class ProcessorService {
         try {
             result = HttpUtils.doGet(getUrl, null);
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Error to get processor info " + id, e);
         }
         return result;
     }
@@ -62,7 +65,7 @@ public class ProcessorService {
         try {
             result = HttpUtils.doJsonPut(updateUrl, settings);
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Error to update processor attributes " + id, e);
         }
         return result;
     }

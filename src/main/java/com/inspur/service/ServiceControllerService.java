@@ -4,6 +4,8 @@ import com.inspur.util.EnvUtils;
 import com.inspur.util.HttpUtils;
 import com.inspur.util.ServiceStatus;
 import net.sf.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -12,6 +14,7 @@ import java.util.UUID;
 
 @Service
 public class ServiceControllerService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ServiceControllerService.class);
 
     private final String serviceBaseUri = "/nifi-api/controller-services/";
 
@@ -22,7 +25,7 @@ public class ServiceControllerService {
         try {
             result = HttpUtils.doGet(url, null);
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Error to get service info " + id, e);
         }
         return result;
     }
@@ -40,7 +43,7 @@ public class ServiceControllerService {
         try {
             result = HttpUtils.doJsonPut(url, params);
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("Error to update service status " + id, e);
         }
         return result;
     }
@@ -57,11 +60,13 @@ public class ServiceControllerService {
         params.put("component", component);
 
         String returnId = "";
+        String result = "";
         try {
-            String result = HttpUtils.doJsonPut(url, params);
+            result = HttpUtils.doJsonPut(url, params);
             returnId = getIdFromResult(result);
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error(result);
+            LOGGER.error("Error to update attributes " + id, e);
         }
         return returnId;
     }
@@ -72,13 +77,17 @@ public class ServiceControllerService {
         if ("".equals(serviceInfo)) {
             return clientIdAndVersion;
         }
-        JSONObject jsonInfo = JSONObject.fromObject(serviceInfo);
-        JSONObject jsonRevision = jsonInfo.getJSONObject("revision");
-        clientIdAndVersion.put("version", jsonRevision.getString("version"));
-        if (jsonRevision.has("clientId")) {
-            clientIdAndVersion.put("clientId", jsonRevision.getString("clientId"));
-        } else {
-            clientIdAndVersion.put("clientId", UUID.randomUUID().toString());
+        try {
+            JSONObject jsonInfo = JSONObject.fromObject(serviceInfo);
+            JSONObject jsonRevision = jsonInfo.getJSONObject("revision");
+            clientIdAndVersion.put("version", jsonRevision.getString("version"));
+            if (jsonRevision.has("clientId")) {
+                clientIdAndVersion.put("clientId", jsonRevision.getString("clientId"));
+            } else {
+                clientIdAndVersion.put("clientId", UUID.randomUUID().toString());
+            }
+        } catch (Exception e) {
+            LOGGER.error("Error to get service revision \n" + serviceInfo, e);
         }
         return clientIdAndVersion;
     }
@@ -92,7 +101,7 @@ public class ServiceControllerService {
         try {
             name = getServiceNameFromResult(serviceInfo);
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error(e.toString());
         }
         return name;
     }

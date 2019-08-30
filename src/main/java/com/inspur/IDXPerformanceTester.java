@@ -1,9 +1,11 @@
 package com.inspur;
 
-import com.inspur.bean.NiFiUserHK;
-import com.inspur.bean.OrganHK;
+import com.inspur.bean.NiFiUser;
+import com.inspur.bean.Organ;
 import com.inspur.jpa.NiFiUserHKJpa;
+import com.inspur.jpa.NiFiUserJpa;
 import com.inspur.jpa.OrganHKJpa;
+import com.inspur.jpa.OrganJpa;
 import com.inspur.service.*;
 import com.inspur.util.*;
 import net.sf.json.JSONArray;
@@ -30,9 +32,13 @@ public class IDXPerformanceTester implements ApplicationRunner {
     private long failCount = 0;
 
     @Autowired
-    NiFiUserHKJpa userJpa;
+    NiFiUserHKJpa userHKJpa;
     @Autowired
-    OrganHKJpa organJpa;
+    NiFiUserJpa userJpa;
+    @Autowired
+    OrganHKJpa organJpaHK;
+    @Autowired
+    OrganJpa organJpa;
     @Autowired
     private ProcessGroupService groupService;
     @Autowired
@@ -59,6 +65,7 @@ public class IDXPerformanceTester implements ApplicationRunner {
         LOGGER.info("Template ID is " + templateId);
         List<String> groupIds = createProcessGroups();
 //      List<String> groupIds = getProcessGroupIdsFromNiFi();
+//        List<String> groupIds = getProcessGroupIdsFromDB();
         doCreateAndRun(groupIds);
     }
 
@@ -144,7 +151,7 @@ public class IDXPerformanceTester implements ApplicationRunner {
     }
 
     private List<String> getProcessGroupIdsFromDB() {
-        String userId = EnvUtils.getAuthUser() + "-" + EnvUtils.getREALM();
+        String userId = EnvUtils.getAuthUser() + "-" + EnvUtils.getCLUSTER();
         return organJpa.findAllIdByUserId(userId);
     }
 
@@ -235,8 +242,8 @@ public class IDXPerformanceTester implements ApplicationRunner {
         if (!"".equals(Constants.getBaseGroupId())) {
             return Constants.getBaseGroupId();
         }
-        String userId = EnvUtils.getAuthUser() + "-" + EnvUtils.getREALM();
-        NiFiUserHK user = userJpa.findByUserId(userId);
+        String userId = EnvUtils.getAuthUser() + "-" + EnvUtils.getCLUSTER();
+        NiFiUser user = userJpa.findByUserId(userId);
         if (null == user) {
             throw new RuntimeException("Can not find " + userId + " from db. please check!");
         }
@@ -269,7 +276,7 @@ public class IDXPerformanceTester implements ApplicationRunner {
         int successCount = 0;
         for (int i = 1; i < Constants.getGroupNum() + 1; i++) {
 
-            String groupName = "IDXPerformance-3-" + i;
+            String groupName = "IDXPerformance-0-" + i;
             String resultGroupId = groupService.addProcessGroup(groupName, baseGroupId);
             if (!"".equals(resultGroupId)) {
                 idAndName.put(resultGroupId, groupName);
@@ -285,10 +292,10 @@ public class IDXPerformanceTester implements ApplicationRunner {
     }
 
     private List<String> saveProcessGroups2DB(Map<String, String> ids) {
-        String userId = EnvUtils.getAuthUser() + "-" + EnvUtils.getREALM();
+        String userId = EnvUtils.getAuthUser() + "-" + EnvUtils.getCLUSTER();
         List<String> savedIds = new LinkedList<>();
         ids.forEach((k, v) -> {
-            OrganHK organ = new OrganHK();
+            Organ organ = new Organ();
             organ.setId(k);
             organ.setName(v);
             organ.setParentId("0");
